@@ -1,0 +1,24 @@
+[
+    {
+        "email": "sumit.rawat@edvanta.com",
+        "email_verified": false,
+        "name": "sumit rawat",
+        "given_name": "sumit",
+        "family_name": "rawat",
+      "nickname": "johndoe123",
+      "user_id": "",
+      "picture": "abc.png"
+    },
+    {
+        "email": "sumit.rawat+1@edvanta.com",
+        "email_verified": false,
+        "name": "sumit rawat",
+        "given_name": "sumit",
+        "family_name": "rawat",
+        "nickname": "johndoe123",
+        "user_id": "",
+        "picture": "abc.png"
+      }
+]
+  
+  
