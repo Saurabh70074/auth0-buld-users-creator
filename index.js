@@ -42,17 +42,83 @@ async function getManagementToken() {
 
 
 // API endpoint for bulk user upload
+// app.post('/upload-users', async (req, res) => {
+//   try {
+//     // Get the Auth0 Management API Token
+//     const token = await getManagementToken();
+
+//     // Prepare FormData with the CSV file
+//     const form = new FormData();
+//     form.append('users', fs.createReadStream('user.json'));
+//     form.append('connection_id', 'con_mIZ8kSMehWSugTcY');
+
+//     // Import users via Auth0 API
+//     const response = await axios.post(
+//       `https://${AUTH0_DOMAIN}/api/v2/jobs/users-imports`,
+//       form,
+//       {
+//         headers: {
+//           ...form.getHeaders(),
+//           Authorization: `Bearer ${token}`,
+//         },
+//       }
+//     );
+
+//     // Get job ID to track import completion if needed
+//     const jobId = response.data.id;
+
+//     console.log('job id',jobId);
+
+//     // Optionally wait for the import job to complete, then send verification emails
+//     // Loop over each imported user and send the verification email
+//     const users = JSON.parse(fs.readFileSync('user.json'));
+//     for (const user of users) {
+//       await axios.post(
+//         `https://${AUTH0_DOMAIN}/api/v2/jobs/verification-email`,
+//         {
+//           user_id: user.user_id, // Add or map user_id based on Auth0 import results
+//         },
+//         {
+//           headers: {
+//             Authorization: `Bearer ${token}`,
+//           },
+//         }
+//       );
+//     }
+
+//     res.status(200).json({
+//       message: 'User import and verification emails sent successfully',
+//       res: response.data,
+//     });
+//   } catch (error) {
+//     console.error('Error uploading users:', error);
+//     res.status(500).json({
+//       message: 'Failed to upload users',
+//       error: error.response ? error.response.data : error.message,
+//     });
+//   }
+// });
+
+function getEmailsFromJson(filePath) {
+  const fileData = fs.readFileSync(filePath, 'utf8');
+  const users = JSON.parse(fileData);
+  return users.map(user => user.email); // Assuming each user object has an `email` property
+}
+
+// Filter users based on emails from user.json
+async function filterUsersByEmails(allUsers, filePath) {
+  const emailsFromJson = getEmailsFromJson(filePath);
+  return allUsers.filter(user => emailsFromJson.includes(user.email));
+}
 app.post('/upload-users', async (req, res) => {
   try {
-    // Get the Auth0 Management API Token
     const token = await getManagementToken();
 
-    // Prepare FormData with the CSV file
+    // Step 1: Prepare FormData and initiate user import
     const form = new FormData();
     form.append('users', fs.createReadStream('user.json'));
     form.append('connection_id', 'con_mIZ8kSMehWSugTcY');
 
-    // Make the request to Auth0 API
     const response = await axios.post(
       `https://${AUTH0_DOMAIN}/api/v2/jobs/users-imports`,
       form,
@@ -64,10 +130,85 @@ app.post('/upload-users', async (req, res) => {
       }
     );
 
-    // Send response back to the client
+    const jobId = response.data.id;
+
+    // Step 2: Wait for import job completion (Optional: Polling implementation)
+    // Implement polling or a delay to allow time for the import to complete if needed
+
+    // Step 3: Retrieve imported users based on the connection_id
+    const allUsers = [];
+    let page = 0;
+    const perPage = 100; // Maximum allowed by Auth0
+
+    while (true) {
+      const response = await axios.get(
+        `https://${AUTH0_DOMAIN}/api/v2/users`,
+        {
+          params: { page, per_page: perPage },
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const users = response.data;
+      allUsers.push(...users);
+
+      // Break if there are no more users to fetch
+      if (users.length < perPage) break;
+
+      // Move to the next page
+      page++;
+    }
+
+    console.log('allUsers',allUsers )
+    const matchedUsers = await filterUsersByEmails(allUsers, 'user.json');
+    // Get user IDs
+  
+    const userIds = matchedUsers.map(user => user.user_id); // Assuming user objects have a `user_id` property
+    console.log('Matched User IDs:', userIds);
+
+
+    for (const userId of userIds) {
+      // Step 1: Send Email Verification
+      try {
+        await axios.post(
+          `https://${AUTH0_DOMAIN}/api/v2/jobs/verification-email`,
+          {
+            user_id: userId,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+    
+        console.log(`Verification email sent to user: ${userId}`);
+    
+        // Step 2: Send Password Reset Email
+        const passwordResetResponse = await axios.post(
+          `https://${AUTH0_DOMAIN}/api/v2/tickets/password-change`,
+          {
+            user_id: userId,
+            // result_url: 'https://your-app-domain.com/reset-successful', // Redirect URL after password reset
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+    
+        console.log(
+          `Password reset email sent to user: ${userId}, ticket URL: ${passwordResetResponse.data.ticket}`
+        );
+      } catch (error) {
+        console.error(`Error processing user: ${userId}`, error.response?.data || error.message);
+      }
+    }
+    
     res.status(200).json({
-      message: 'User import job created successfully',
-      res: response.data,
+      message: 'User import and retrieval successful',
+      importedUserIds: matchedUsers,
     });
   } catch (error) {
     console.error('Error uploading users:', error);

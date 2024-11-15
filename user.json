@@ -1,22 +1,22 @@
 [
     {
-        "email": "sumit.rawat@edvanta.com",
+        "email": "saurabh.singh+1@edvanta.com",
         "email_verified": false,
-        "name": "sumit rawat",
-        "given_name": "sumit",
-        "family_name": "rawat",
-      "nickname": "johndoe123",
-      "user_id": "",
+        "name": "saurabh singh",
+        "given_name": "saurabh",
+        "family_name": "singh",
+      "nickname": "goku",
+      "user_id": "auth0|6720f708984302b8862a691c",
       "picture": "abc.png"
     },
     {
-        "email": "sumit.rawat+1@edvanta.com",
+        "email": "harshit.jain+1@edvanta.com",
         "email_verified": false,
-        "name": "sumit rawat",
-        "given_name": "sumit",
-        "family_name": "rawat",
-        "nickname": "johndoe123",
-        "user_id": "",
+        "name": "harshit jain",
+        "given_name": "harshit",
+        "family_name": "jain",
+        "nickname": "harsh",
+        "user_id": "auth0|6736d46773a10c0fd1c28ae0",
         "picture": "abc.png"
       }
 ]
