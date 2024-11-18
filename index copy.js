@@ -229,6 +229,8 @@ app.get('/verified-users/:userId', async (req, res) => {
     // Get the management token
     const token = await getManagementToken();
 
+    
+
     // Step 1: Send the request to Auth0 to generate a password reset ticket
     const passwordResetResponse = await axios.post(
       `https://${AUTH0_DOMAIN}/api/v2/tickets/password-change`,
@@ -241,20 +243,7 @@ app.get('/verified-users/:userId', async (req, res) => {
         },
       }
     );
-     const updateUserResponse = await axios.patch(
-      `https://${AUTH0_DOMAIN}/api/v2/users/${userId}`,
-      {
-        email_verified: true,  // Set email_verified to true
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    console.log(`User ${userId} email verified status updated to true.`);
-    console.log('updateUserResponse::', updateUserResponse);
+  
     // Step 2: Extract the reset ticket URL from the response
     const passwordResetUrl = `${passwordResetResponse.data.ticket}`;
   
