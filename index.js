@@ -188,6 +188,98 @@ app.post('/upload-users', async (req, res) => {
           subject: 'Verification Email',
           text: 'Please verify your email address by clicking the link below.',
           html: `<p>Please verify your email address by clicking the link below. <a href="http://localhost:3000/verified-users/${userId}">Verify Account</a></p>`,
+          html: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Your Account</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+    .container {
+      max-width: 600px;
+      margin: 20px auto;
+      background: #ffffff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    .header {
+      background-color: #222222;
+      color: #ffffff;
+      text-align: center;
+      padding: 20px;
+    }
+    .header img {
+      max-height: 40px;
+    }
+    .header h1 {
+      margin: 10px 0;
+      font-size: 24px;
+    }
+    .content {
+      padding: 20px;
+      color: #333333;
+    }
+    .content p {
+      margin: 10px 0;
+      line-height: 1.6;
+    }
+    .verify-btn {
+      display: block;
+      text-align: center;
+      margin: 20px auto;
+    }
+    .verify-btn a {
+      background-color: #f55a2c;
+      color: #ffffff;
+      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      font-size: 16px;
+    }
+    .footer {
+      font-size: 12px;
+      text-align: center;
+      color: #999999;
+      padding: 20px;
+      background: #f9f9f9;
+    }
+    .footer a {
+      color: #999999;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header Section -->
+    <div class="header">
+      <img src="https://auth0.com/favicon.ico" alt="Auth0 Logo">
+      <h1>Verify Your Account</h1>
+    </div>
+    <!-- Content Section -->
+    <div class="content">
+      <p><strong>Verify Link:</strong> <a href="http://localhost:3000/verified-users/${userId}">Click here to verify</a></p>
+      <div class="verify-btn">
+        <a href="http://localhost:3000/verified-users/${userId}">VERIFY YOUR ACCOUNT</a>
+      </div>
+      <p>If you are having any issues with your account, please don't hesitate to contact us by replying to this mail.</p>
+      <p>Thanks!</p>
+    </div>
+    <!-- Footer Section -->
+    <div class="footer">
+      <p>You’re receiving this email because you have an account in dev-245l7o4d2ki6i2rq. If you are not sure why you’re receiving this, please <a href="mailto:support@example.com">contact us</a>.</p>
+    </div>
+  </div>
+</body>
+</html>
+`
         };
 
         await transporter.sendMail(mailOptions);
@@ -225,42 +317,97 @@ app.post('/upload-users', async (req, res) => {
 app.get('/verified-users/:userId', async (req, res) => {
   const userId = req.params.userId; // Access userId from URL parameters
   
+  const verifyTemplate = (redirectUrl) => `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account Verified</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: Arial, sans-serif;
+      background-color: #ffffff;
+    }
+    .container {
+      text-align: center;
+      padding: 20px;
+    }
+    .circle {
+      width: 80px;
+      height: 80px;
+      border: 4px solid #4CAF50;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 0 auto 20px auto;
+    }
+    .checkmark {
+      color: #4CAF50;
+      font-size: 36px;
+      font-weight: bold;
+    }
+    .title {
+      font-size: 24px;
+      color: #333333;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    .message {
+      font-size: 16px;
+      color: #666666;
+    }
+  </style>
+  <script>
+    setTimeout(() => {
+      window.location.href = "${redirectUrl}";
+    }, 5000); // Redirect after 5 seconds
+  </script>
+</head>
+<body>
+  <div class="container">
+    <div class="circle">
+      <span class="checkmark">&#10003;</span>
+    </div>
+    <div class="title">Account Verified!</div>
+    <div class="message">Your account has been verified successfully.</div>
+  </div>
+</body>
+</html>
+`;
+
   try {
     // Get the management token
     const token = await getManagementToken();
 
-    // Step 1: Send the request to Auth0 to generate a password reset ticket
+    // Send the request to Auth0 to generate a password reset ticket
     const passwordResetResponse = await axios.post(
       `https://${AUTH0_DOMAIN}/api/v2/tickets/password-change`,
-      {
-        user_id: userId,  // Pass the userId from the request params
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
+      { user_id: userId },
+      { headers: { Authorization: `Bearer ${token}` } }
     );
-     const updateUserResponse = await axios.patch(
+
+    // Update user's email verification status
+    await axios.patch(
       `https://${AUTH0_DOMAIN}/api/v2/users/${userId}`,
-      {
-        email_verified: true,  // Set email_verified to true
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
+      { email_verified: true },
+      { headers: { Authorization: `Bearer ${token}` } }
     );
 
     console.log(`User ${userId} email verified status updated to true.`);
-    console.log('updateUserResponse::', updateUserResponse);
-    // Step 2: Extract the reset ticket URL from the response
+
+    // Extract the reset ticket URL
     const passwordResetUrl = `${passwordResetResponse.data.ticket}`;
-  
-    // Step 3: Redirect the user to the password reset URL
-    res.redirect(passwordResetUrl);
-  
+
+    // Send the verify template with redirection
+    res.send(verifyTemplate(passwordResetUrl));
   } catch (error) {
     console.error('Error generating password reset ticket:', error);
     res.status(500).json({
@@ -269,6 +416,7 @@ app.get('/verified-users/:userId', async (req, res) => {
     });
   }
 });
+
 
 
 
