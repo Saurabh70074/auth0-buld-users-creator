@@ -113,7 +113,7 @@ const importUsersToAuth0 = async (token, filePath) => {
     { headers: { ...form.getHeaders(), Authorization: `Bearer ${token}` } }
   );
 
-  return response.data.id;
+  return response.data;
 };
 
 
@@ -484,10 +484,13 @@ app.post('/upload-users', async (req, res) => {
     // Import users to Auth0
     const jobId = await importUsersToAuth0(auth0Token, 'user.json');
     console.log('Auth0 Import Job ID:', jobId);
-
     // Fetch all users from Auth0
     const allUsers = []; // Replace with actual code to fetch Auth0 users
     const matchedUsers = await filterUsersByEmails(allUsers, 'user.json');
+    console.log('matches users',matchedUsers)
+
+    return
+    let auth0LoginToken = auth0LoginTokenApi()
 
     // Send data to Boundless API
     await sendDataToBoundlessAPI(auth0Token, matchedUsers, userData);
