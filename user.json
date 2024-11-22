@@ -1,6 +1,6 @@
 [
     {
-        "email": "saurabh.singh+2@edvanta.com",
+        "email": "saurabh.singh+3@edvanta.com",
         "email_verified": false,
         "name": "saurabh singh",
         "given_name": "saurabh",
@@ -8,10 +8,11 @@
         "nickname": "goku",
         "user_id": "",
         "picture": "abc.png",
+        "password": "Edvanta#21$",
         "phoneNumber":""
     },
     {
-        "email": "saurabh70074+1@gmail.com",
+        "email": "saurabh70074+2@gmail.com",
         "email_verified": false,
         "name": "harshit jain",
         "given_name": "harshit",
@@ -19,6 +20,7 @@
         "nickname": "harsh",
         "user_id": "",
         "picture": "abc.png",
+        "password": "Edvanta#21$$",
         "phoneNumber": ""
       }
 ]

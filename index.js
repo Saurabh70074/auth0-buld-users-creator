@@ -5,6 +5,9 @@ const FormData = require('form-data');
 const fs = require('fs'); ;
 const fsMoodle = require('fs').promises; ;
 const app = express();
+const CryptoJS = require('crypto-js');
+const createCsvWriter = require('csv-writer').createObjectCsvWriter;
+const csv = require('csv-parser');
 
 
 // Set your Auth0 details here
@@ -55,7 +58,6 @@ async function getManagementToken() {
   }
 
   async function getMoodleToken() {
-    console.log('hello moodle token')
     const url = "https://sassoon.edvantalabs.com/login/token.php";
     
     // Post parameters
@@ -101,22 +103,132 @@ const createMoodleUsers = async (moodleToken, userData) => {
   return response.data;
 };
 
-// Step 4: Import users to Auth0
-const importUsersToAuth0 = async (token, filePath) => {
-  const form = new FormData();
-  form.append('users', fs.createReadStream(filePath));
-  form.append('connection_id', AUTH0_CONNECTION_ID);
-
-  const response = await axios.post(
-    `https://${AUTH0_DOMAIN}/api/v2/jobs/users-imports`,
-    form,
-    { headers: { ...form.getHeaders(), Authorization: `Bearer ${token}` } }
-  );
-
-  return response.data;
+const generatePassword = () => {
+  const randomString = CryptoJS.lib.WordArray.random(8).toString(CryptoJS.enc.Hex);  // Generates a 16-character password
+  return randomString;
 };
 
+// Step 4: Import users to Auth0
+// const importUsersToAuth0 = async (token, filePath) => {
+//   const form = new FormData();
+//   form.append('users', fs.createReadStream(filePath));
+//   form.append('connection_id', AUTH0_CONNECTION_ID);
 
+//   console.log('form data',form);
+
+//   const response = await axios.post(
+//     `https://${AUTH0_DOMAIN}/api/v2/jobs/users-imports`,
+//     form,
+//     { headers: { ...form.getHeaders(), Authorization: `Bearer ${token}` } }
+//   );
+
+//   return response.data;
+// };
+
+const importUsersToAuth0 = async (token, filePath) => {
+  const usersData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));  // Read the JSON data from file
+  const usersWithPasswords = [];
+
+  // Iterate through users and generate passwords
+  usersData.forEach(user => {
+    const password = generatePassword(); // Generate a new password for each user
+    user.password = password; // Add the password to the user data
+    usersWithPasswords.push(user);
+  });
+
+  // Save users with passwords into a new CSV file
+  const csvWriter = createCsvWriter({
+    path: 'users_with_passwords.csv',
+    header: [
+      { id: 'username', title: 'Username' },
+      { id: 'firstname', title: 'First Name' },
+      { id: 'lastname', title: 'Last Name' },
+      { id: 'email', title: 'Email' },
+      { id: 'password', title: 'Password' }
+    ]
+  });
+
+  await csvWriter.writeRecords(usersWithPasswords);  // Write data to CSV file
+  console.log('Generated passwords saved to users_with_passwords.csv');
+
+  // Prepare form data for Auth0 import
+  const form = new FormData();
+  form.append('users', fs.createReadStream('users_with_passwords.csv'));
+  form.append('connection_id', AUTH0_CONNECTION_ID);
+
+  try {
+    // Send the request to Auth0 for user import
+    const response = await axios.post(
+      `https://${AUTH0_DOMAIN}/api/v2/jobs/users-imports`,
+      form,
+      { headers: { ...form.getHeaders(), Authorization: `Bearer ${token}` } }
+    );
+
+    console.log('Auth0 User Import Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error importing users to Auth0:', error.message);
+    throw error;
+  }
+};
+
+// Define the API function
+// Define the API function
+// Define the function to get OAuth tokens for users
+const oauthUserLoginTokenApi = async () => {
+  const url = 'https://dev-245l7o4d2ki6i2rq.us.auth0.com/oauth/token';
+  const users = []; // Array to store user data from the CSV
+
+  return new Promise((resolve, reject) => {
+    // Read the CSV file and extract the user information
+    fs.createReadStream('users_with_passwords.csv')
+      .pipe(csv()) // Parse the CSV
+      .on('data', (row) => {
+        users.push({
+          username: row.Email,  // Assuming the column name for email is 'Email'
+          password: row.password // Assuming the column name for password is 'password'
+        });
+      })
+      .on('end', async () => {
+        const tokens = [];  // Array to store the access tokens for each user
+
+        for (let user of users) {
+          const body = {
+            client_id: 'wsTskEnYqpJkK98LUl8mTDvACGTu8XuO',  // Your client_id
+            client_secret: 'V4HwnOsreLbk9NVOMGTPVRQO4aZZXBkqQ2D45t4tZwSTdB_2yIRsGf3Yon8bXh8E',  // Your client_secret
+            grant_type: "client_credentials",  // Use password grant type for user login
+            username: user.username,  // The user's email from the CSV
+            password: user.password,  // The user's password from the CSV
+            audience: 'https://dev-245l7o4d2ki6i2rq.us.auth0.com/api/v2/',  // The audience URL
+          };
+
+          try {
+            // Sending the request to get the OAuth token
+            const response = await axios.post(url, new URLSearchParams(body), {
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+            });
+
+            // Push the access token into the tokens array
+            tokens.push({
+              username: user.username,
+              access_token: response.data.access_token
+            });
+
+            console.log('Access Token for', user.username, ':', response.data.access_token);
+          } catch (error) {
+            console.error('Error for user', user.username, ':', error.response ? error.response.data : error.message);
+          }
+        }
+
+        // Resolve the promise with the tokens array after all users are processed
+        console.log('All Tokens:', tokens);
+        resolve(tokens);  // Resolve the promise with the tokens array
+      })
+      .on('error', (err) => {
+        reject(err); // Reject the promise if an error occurs while reading the file
+      });
+  });
+};
 // Step 5: Send data to Boundless API
 const sendDataToBoundlessAPI = async (token, matchedUsers, userData) => {
   for (const user of userData) {
@@ -485,15 +597,44 @@ app.post('/upload-users', async (req, res) => {
     const jobId = await importUsersToAuth0(auth0Token, 'user.json');
     console.log('Auth0 Import Job ID:', jobId);
     // Fetch all users from Auth0
-    const allUsers = []; // Replace with actual code to fetch Auth0 users
+    const allUsers = [];
+    let page = 0;
+    const perPage = 100; // Maximum allowed by Auth0
+
+    while (true) {
+      const userResponse = await axios.get(
+        `https://${AUTH0_DOMAIN}/api/v2/users`,
+        {
+          params: { page, per_page: perPage },
+          headers: { Authorization: `Bearer ${auth0Token}` },
+        }
+      );
+
+      const users = userResponse.data;
+      allUsers.push(...users);
+
+      if (users.length < perPage) break;
+      page++;
+    }
+
+
+
+    const oauthUserLoginToken = await oauthUserLoginTokenApi();
+    console.log('oauthUserLoginToken::', oauthUserLoginToken[0].access_token, oauthUserLoginToken[0].username); 
+
     const matchedUsers = await filterUsersByEmails(allUsers, 'user.json');
-    console.log('matches users',matchedUsers)
 
-    return
-    let auth0LoginToken = auth0LoginTokenApi()
+    let salesForceResponse; // Declare the variable
 
-    // Send data to Boundless API
-    await sendDataToBoundlessAPI(auth0Token, matchedUsers, userData);
+// Send data to Boundless API
+for (const user of matchedUsers) {
+  if (oauthUserLoginToken[0].username === user.email) {
+    // If the username and email match, send the access token to Boundless API
+    salesForceResponse = await sendDataToBoundlessAPI(oauthUserLoginToken[0].access_token, user, userData);
+    break; // Optional: If you want to stop once a match is found
+  }
+}
+
 
     // Send verification emails
     await sendVerificationEmails(matchedUsers);
@@ -502,6 +643,7 @@ app.post('/upload-users', async (req, res) => {
       message: 'User upload successful',
       moodleUsers,
       matchedUsers,
+      salesForceResponse
     });
   } catch (error) {
     console.error('Error in /upload-users:', error);
@@ -598,8 +740,6 @@ app.get('/verified-users/:userId', async (req, res) => {
       { email_verified: true },
       { headers: { Authorization: `Bearer ${token}` } }
     );
-
-    console.log(`User ${userId} email verified status updated to true.`);
 
     // Extract the reset ticket URL
     const passwordResetUrl = `${passwordResetResponse.data.ticket}`;
