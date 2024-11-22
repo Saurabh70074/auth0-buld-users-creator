@@ -6,8 +6,9 @@
         "given_name": "saurabh",
         "family_name": "singh",
         "nickname": "goku",
-        "user_id": "auth0|6720f708984302b8862a691c",
-        "picture": "abc.png"
+        "user_id": "",
+        "picture": "abc.png",
+        "phoneNumber":""
     },
     {
         "email": "saurabh70074@gmail.com",
@@ -16,8 +17,9 @@
         "given_name": "harshit",
         "family_name": "jain",
         "nickname": "harsh",
-        "user_id": "auth0|6736d46773a10c0fd1c28ae0",
-        "picture": "abc.png"
+        "user_id": "",
+        "picture": "abc.png",
+        "phoneNumber": ""
       }
 ]
   
