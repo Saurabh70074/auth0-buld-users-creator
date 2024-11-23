@@ -1,0 +1,27 @@
+[
+    {
+        "email": "saurabh.singh+8@edvanta.com",
+        "email_verified": false,
+        "name": "saurabh singh",
+        "given_name": "saurabh",
+        "family_name": "singh",
+        "nickname": "goku",
+        "user_id": "",
+        "picture": "abc.png",
+        "password": "",
+        "phoneNumber":""
+    },
+    {
+        "email": "saurabh70074+7@gmail.com",
+        "email_verified": false,
+        "name": "harshit jain",
+        "given_name": "harshit",
+        "family_name": "jain",
+        "nickname": "harsh",
+        "user_id": "",
+        "picture": "abc.png",
+        "password": "",
+        "phoneNumber": ""
+      }
+]
+  
