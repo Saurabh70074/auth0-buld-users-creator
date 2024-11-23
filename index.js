@@ -11,7 +11,8 @@ const {
   importUsersToAuth0,
   oauthUserLoginTokenApi,
   sendDataToBoundlessAPI,
-  sendVerificationEmails
+  sendVerificationEmails,
+  filterUsersByEmails
 } = require('./service');
 // Main route to handle user upload
 app.post('/upload-users', async (req, res) => {

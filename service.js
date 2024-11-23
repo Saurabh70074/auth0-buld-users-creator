@@ -7,6 +7,11 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const csv = require('csv-parser');
 require('dotenv').config();
 
+const filterUsersByEmails = async (allUsers, filePath) => {
+  const emailsFromJson = getEmailsFromJson(filePath);
+  return allUsers.filter(user => emailsFromJson.includes(user.email));
+}
+
 const readJSONFile = async (filePath) => {
   try {
     const data = await fs.promises.readFile(filePath, 'utf8');
@@ -274,4 +279,5 @@ module.exports = {
   oauthUserLoginTokenApi,
   sendDataToBoundlessAPI,
   sendVerificationEmails,
+  filterUsersByEmails
 };
