@@ -3,13 +3,17 @@ const nodemailer = require('nodemailer');
 const FormData = require('form-data');
 const fs = require('fs');
 const CryptoJS = require('crypto-js');
-const createCsvWriter = require('csv-writer').createObjectCsvWriter;
-const csv = require('csv-parser');
 require('dotenv').config();
 
 const filterUsersByEmails = async (allUsers, filePath) => {
-  const emailsFromJson = getEmailsFromJson(filePath);
+  const emailsFromJson = await getEmailsFromJson(filePath);
   return allUsers.filter(user => emailsFromJson.includes(user.email));
+}
+
+const getEmailsFromJson = async (filePath)=>{
+  const fileData = fs.readFileSync(filePath, 'utf8');
+  const users = JSON.parse(fileData);
+  return users.map(user => user.email); // Assuming each user object has an `email` property
 }
 
 const readJSONFile = async (filePath) => {
@@ -92,46 +96,6 @@ const generatePassword = () => {
   return randomString;
 };
 
-// const importUsersToAuth0 = async (token, filePath) => {
-//   const usersData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-//   const usersWithPasswords = usersData.map((user) => {
-//     const password = generatePassword();
-//     return { ...user, password };
-//   });
-
-//   const csvWriter = createCsvWriter({
-//     path: 'users_with_passwords.csv',
-//     header: [
-//       { id: 'username', title: 'Username' },
-//       { id: 'firstname', title: 'First Name' },
-//       { id: 'lastname', title: 'Last Name' },
-//       { id: 'email', title: 'Email' },
-//       { id: 'password', title: 'Password' },
-//     ],
-//   });
-
-//   await csvWriter.writeRecords(usersWithPasswords);
-//   console.log('Generated passwords saved to users_with_passwords.csv');
-
-//   const form = new FormData();
-//   form.append('users', fs.createReadStream('users_with_passwords.csv'));
-//   form.append('connection_id', process.env.AUTH0_CONNECTION_ID);
-
-//   try {
-//     const response = await axios.post(
-//       `https://${process.env.AUTH0_DOMAIN}/api/v2/jobs/users-imports`,
-//       form,
-//       { headers: { ...form.getHeaders(), Authorization: `Bearer ${token}` } }
-//     );
-
-//     console.log('Auth0 User Import Response:', response.data);
-//     return response.data;
-//   } catch (error) {
-//     console.error('Error importing users to Auth0:', error.message);
-//     throw error;
-//   }
-// };
-
 const importUsersToAuth0 = async (token, filePath) => {
   try {
     // Read the existing user.json file
@@ -140,8 +104,8 @@ const importUsersToAuth0 = async (token, filePath) => {
     // Update each user with a generated password
     const updatedUsers = usersData.map((user) => {
       if (!user.password || user.password === '') {
-        const password = generatePassword();
-        return { ...user, password }; // Append the password
+        // const password = generatePassword();
+        return { ...user }; // Append the password
       }
       return user; // Keep existing password if already present
     });
@@ -173,53 +137,43 @@ const importUsersToAuth0 = async (token, filePath) => {
   }
 };
 
-const oauthUserLoginTokenApi = async () => {
-  const url = process.env.AUTH_TOKEN;
-  const users = [];
+const oauthUserLoginTokenApi = async (user) => {
+  const url = process.env.AUTH0_TOKEN_URL;
 
-  return new Promise((resolve, reject) => {
-    fs.createReadStream('users_with_passwords.csv')
-      .pipe(csv())
-      .on('data', (row) => {
-        users.push({
-          username: row.Email,
-          password: row.password,
-        });
-      })
-      .on('end', async () => {
-        const tokens = [];
-        for (const user of users) {
-          const body = {
-            client_id: process.env.AUTH0_CLIENT_ID,
-            client_secret: process.env.AUTH0_CLIENT_SECRET,
-            grant_type: process.env.AUTH0_GRANT_TYPE,
-            username: user.username,
-            password: user.password,
-          };
+  // Construct the request body for the OAuth token API
+  const body = {
+    client_id: '1Nhvu4Bnr3ki2pDStNah31Z9QiPuorfs',
+    grant_type: "http://auth0.com/oauth/grant-type/password-realm",
+ // Use the passed user's email
+    password: user.password,
+    realm: "Username-Password-Authentication",
+    username: user.email,
+     // Use the passed user's password
+  };
 
-          try {
-            const response = await axios.post(url, new URLSearchParams(body), {
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            });
-
-            tokens.push({ username: user.username, access_token: response.data.access_token });
-          } catch (error) {
-            console.error('Error for user', user.username, ':', error.message);
-          }
-        }
-        resolve(tokens);
-      })
-      .on('error', (err) => reject(err));
-  });
+  try {
+    const response = await axios.post(url, new URLSearchParams(body), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+    // Return the access token and username
+    return {
+      username: user.email,
+      access_token: response.data.access_token,
+    };
+  } catch (error) {
+    console.error('Error fetching OAuth token for user:', user.email, error.message);
+    throw error; // Re-throw the error to handle it in the calling code
+  }
 };
 
-const sendDataToBoundlessAPI = async (token, matchedUsers, userData) => {
-  for (const user of userData) {
-    const matchedUser = matchedUsers.find((u) => u.email === user.email);
 
-    if (matchedUser) {
+const sendDataToBoundlessAPI = async (token, matchedUsers, userData) => {
+
+  console.log('token::', token)
+  console.log('userData::', userData)
+
       const headers = {
-        piid: matchedUser.user_id,
+        piid: userData.user_id,
         piSessionToken: token,
         apc: 'BDM',
         systemUrl: process.env.SALESFORCE_SYSTEM_URL,
@@ -227,21 +181,21 @@ const sendDataToBoundlessAPI = async (token, matchedUsers, userData) => {
       };
 
       const body = {
-        emailid: user.email,
-        familyName: user.family_name,
-        givenName: user.given_name,
-        phoneNumber: user.phoneNumber || '',
-        piid: matchedUser.user_id,
+        emailid: userData.email,
+        familyName: userData.family_name,
+        givenName: userData.given_name,
+        phoneNumber: userData.phoneNumber || '',
+        piid: userData.user_id,
         preferredContactMethod: ['SMS', 'Phone', 'Email'],
         utmValue: 'utm_visited=SSO',
       };
 
       const response = await axios.post(process.env.BOUNDLESS_API, body, { headers });
-      console.log(`Boundless API response for ${user.email}:`, response.data);
-    } else {
-      console.log(`No matching user found for email: ${user.email}`);
-    }
-  }
+      console.log('hello users');
+      console.log(`Boundless API response for ${userData.email}:`, response.data);
+      return response.data;
+
+
 };
 
 const sendVerificationEmails = async (matchedUsers) => {
@@ -279,5 +233,6 @@ module.exports = {
   oauthUserLoginTokenApi,
   sendDataToBoundlessAPI,
   sendVerificationEmails,
-  filterUsersByEmails
+  filterUsersByEmails,
+
 };

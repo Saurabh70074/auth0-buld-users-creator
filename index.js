@@ -1,6 +1,8 @@
 const express = require('express');
 const axios = require('axios');
 const app = express();
+const fs = require('fs').promises;
+const csvWriter = require('csv-writer').createObjectCsvWriter;
 require('dotenv').config();
 
 const { 
@@ -27,11 +29,10 @@ app.post('/upload-users', async (req, res) => {
     // Create users on Moodle
     const moodleUsers = await createMoodleUsers(moodleToken, userData);
 
-    console.log('moodle users::',moodleUsers);
-
      // Import users to Auth0
-    const jobId = await importUsersToAuth0(auth0Token, 'user.json');
-    console.log('Auth0 Import Job ID:', jobId);
+    const importedauth0Data = await importUsersToAuth0(auth0Token, 'user.json');
+
+
 
     // Fetch all users from Auth0
     const allUsers = [];
@@ -54,33 +55,73 @@ app.post('/upload-users', async (req, res) => {
       page++;
     }
 
-
-
-    const oauthUserLoginToken = await oauthUserLoginTokenApi();
-    console.log('oauthUserLoginToken::', oauthUserLoginToken); 
-
     const matchedUsers = await filterUsersByEmails(allUsers, 'user.json');
+
+    const fileData = await fs.readFile('user.json', 'utf8');
+    const usersFromJson = JSON.parse(fileData);
+  
+    // Update the `user_id` in usersFromJson by matching with `matchedUsers`
+    usersFromJson.forEach((jsonUser) => {
+      const matchedUser = matchedUsers.find((user) => user.email === jsonUser.email);
+      if (matchedUser) {
+        jsonUser.user_id = matchedUser.user_id; // Append the `user_id`
+      }
+    });
+
+    // Write the updated data back to the user.json file
+    await fs.writeFile('user.json', JSON.stringify(usersFromJson, null, 2));
+
+
+    const passwordResetLinks = [];
+    for (const user of matchedUsers) {
+      const passwordResetResponse = await axios.post(
+        `https://${process.env.AUTH0_DOMAIN}/api/v2/tickets/password-change`,
+        { user_id: user.user_id },
+        { headers: { Authorization: `Bearer ${auth0Token}` } }
+      );
+
+      const passwordResetLink = passwordResetResponse.data.ticket;
+      console.log('user data:: ', user)
+      passwordResetLinks.push({
+        auth0Id: user.user_id,
+        email: user.email,
+        firstname: user.given_name || 'N/A',
+        lastname: user.family_name || 'N/A',
+        password_reset_link: passwordResetLink,
+      });
+
+      // Update email verification status
+      await axios.patch(
+        `https://${process.env.AUTH0_DOMAIN}/api/v2/users/${user.user_id}`,
+        { email_verified: true },
+        { headers: { Authorization: `Bearer ${auth0Token}` } }
+      );
+    }
+
+    // Write data to CSV
+    const csvFilePath = 'users_with_reset_links.csv';
+    const csvWriterInstance = csvWriter({
+      path: csvFilePath,
+      header: [
+        { id: 'auth0Id', title: 'Auth0 Id' },
+        { id: 'email', title: 'Email' },
+        { id: 'firstname', title: 'Firstname' },
+        { id: 'lastname', title: 'Lastname' },
+        { id: 'password_reset_link', title: 'Password Reset Link' },
+      ],
+    });
+
+    await csvWriterInstance.writeRecords(passwordResetLinks);
 
     let salesForceResponse; // Declare the variable
 
-// Send data to Boundless API
-for (const user of matchedUsers) {
-  console.log('oauthUserLoginToken.access_token', oauthUserLoginToken);
-  if (oauthUserLoginToken[0].username === user.email) {
-    // If the username and email match, send the access token to Boundless API
-    salesForceResponse = await sendDataToBoundlessAPI(oauthUserLoginToken[0].access_token, user, userData);
-    break; // Optional: If you want to stop once a match is found
-  }
-}
-
-
     // Send verification emails
-    await sendVerificationEmails(matchedUsers);
+    // await sendVerificationEmails(matchedUsers);
 
     res.status(200).json({
       message: 'User upload successful',
       moodleUsers,
-      matchedUsers,
+      importedauth0Data,
       salesForceResponse
     });
   } catch (error) {
@@ -199,7 +240,7 @@ app.get('/get-all-users', async (req, res) => {
       const token = await getManagementToken();
   
       // Make the request to Auth0 to get all users
-      const url = `https://${AUTH0_DOMAIN}/api/v2/users`;
+      const url = `https://${process.env.AUTH0_DOMAIN}/api/v2/users`;
       const response = await axios.get(url, {
         headers: {
           Authorization: `Bearer ${token}`,
