@@ -32,7 +32,7 @@ app.post('/upload-users', async (req, res) => {
      // Import users to Auth0
     const importedauth0Data = await importUsersToAuth0(auth0Token, 'user.json');
 
-
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     // Fetch all users from Auth0
     const allUsers = [];

@@ -48,7 +48,7 @@ const getManagementToken = async () => {
 };
 
 const getMoodleToken = async () => {
-  const url = process.env.MOODLE_TOKEN_URL;
+  const url = `${process.env.MOODLE_URL}/login/token.php`;
 
   const params = {
     username: process.env.MOODLE_USER_NAME,

@@ -1,24 +1,24 @@
 [
   {
-    "email": "rohit.negi1+42@boundlesslearning.com",
+    "email": "rohit.negi1+40@boundlesslerning.com",
     "email_verified": false,
     "name": "saurabh singh",
     "given_name": "rohit",
     "family_name": "negi",
     "nickname": "goku",
-    "user_id": "auth0|auth0|auth0|6742e819f3f35f2b2f89d758",
+    "user_id": "auth0|auth0|6742e819f3f35f2b2f89d758",
     "picture": "abc.png",
     "password": "",
     "phoneNumber": ""
   },
   {
-    "email": "rohit.negi1+43@boundlesslearning.com",
+    "email": "rohit.negi1+41@boundlesslerning.com",
     "email_verified": false,
     "name": "harshit jain",
     "given_name": "harshit",
     "family_name": "jain",
     "nickname": "harsh",
-    "user_id": "auth0|auth0|auth0|6742e819f3f35f2b2f89d759",
+    "user_id": "auth0|auth0|6742e819f3f35f2b2f89d759",
     "picture": "abc.png",
     "password": "",
     "phoneNumber": ""
